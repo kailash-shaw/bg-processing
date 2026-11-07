@@ -1,0 +1,434 @@
+{
+  "info": {
+    "name": "KYC Webhook Integration Service",
+    "_postman_id": "b3e0c7a5-4f76-46b8-89c0-672588147d32",
+    "description": "Postman Collection for  Global KYC Webhook Integration Service.\nIncludes auto-signing pre-request scripts for HMAC SHA-256 and preconfigured JWT tokens for tenant isolation testing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "KYC_WEBHOOK_SECRET",
+      "value": "local-dev-kyc-secret",
+      "type": "string"
+    },
+    {
+      "key": "token_tenant_1",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpbnYtdXVpZC00NTYiLCJpbnZlc3Rvcl9pZCI6Imludi11dWlkLTQ1NiIsInRlbmFudF9pZCI6InRlbmFudC1tZXJpZGlhbi0xIiwiZW1haWwiOiJpbnZlc3Rvci5tZXJpZGlhbkBleGFtcGxlLmNvbSIsImlhdCI6MTc5NDAxNjY1NiwiZXhwIjoxNzk2NjA4NjU2fQ.rRe3bOPlr-KUbg6odRyMXjH83PfyJ7x2i3Q75I6XWJ8",
+      "type": "string"
+    },
+    {
+      "key": "token_tenant_2",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJpbnYtdXVpZC1vdGhlci10ZW5hbnQiLCJpbnZlc3Rvcl9pZCI6Imludi11dWlkLW90aGVyLXRlbmFudCIsInRlbmFudF9pZCI6InRlbmFudC1nbG9iYWwtMiIsImVtYWlsIjoiaW52ZXN0b3IuZ2xvYmFsQGV4YW1wbGUuY29tIiwiaWF0IjoxNzk0MDE2NjU2LCJleHAiOjE3OTY2MDg2NTZ9.cfkt0bT_io6l1orZDXj04_m5onF-LxJaJNoInA2RD_I",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Webhooks (POST /webhooks/kyc)",
+      "item": [
+        {
+          "name": "POST /webhooks/kyc - 200 OK (Auto-Signed)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const secret = pm.collectionVariables.get('KYC_WEBHOOK_SECRET') || 'local-dev-kyc-secret';",
+                  "const resolvedBody = pm.variables.replaceIn(pm.request.body.raw || '');",
+                  "pm.request.body.raw = resolvedBody;",
+                  "const cryptoLib = typeof CryptoJS !== 'undefined' ? CryptoJS : require('crypto-js');",
+                  "const signature = cryptoLib.HmacSHA256(resolvedBody, secret).toString(cryptoLib.enc.Hex);",
+                  "pm.variables.set('kyc_signature', signature);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json()).to.eql({ received: true });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-KYC-Signature",
+                "value": "{{kyc_signature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"evt-postman-{{$guid}}\",\n  \"investor_id\": \"inv-uuid-456\",\n  \"new_status\": \"approved\",\n  \"timestamp\": \"{{$isoTimestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/kyc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "kyc"
+              ]
+            },
+            "description": "Dispatches a valid KYC status change webhook. Pre-request script automatically signs the body with HMAC SHA-256."
+          }
+        },
+        {
+          "name": "POST /webhooks/kyc - 200 OK (Duplicate Idempotency)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const secret = pm.collectionVariables.get('KYC_WEBHOOK_SECRET') || 'local-dev-kyc-secret';",
+                  "const resolvedBody = pm.variables.replaceIn(pm.request.body.raw || '');",
+                  "pm.request.body.raw = resolvedBody;",
+                  "const cryptoLib = typeof CryptoJS !== 'undefined' ? CryptoJS : require('crypto-js');",
+                  "const signature = cryptoLib.HmacSHA256(resolvedBody, secret).toString(cryptoLib.enc.Hex);",
+                  "pm.variables.set('kyc_signature', signature);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Duplicate event returns 200 OK idempotently', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json()).to.eql({ received: true });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-KYC-Signature",
+                "value": "{{kyc_signature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"evt-fixed-duplicate-101\",\n  \"investor_id\": \"inv-uuid-456\",\n  \"new_status\": \"approved\",\n  \"timestamp\": \"2026-06-20T14:30:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/kyc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "kyc"
+              ]
+            },
+            "description": "Sending this request tests idempotency. Duplicate events return 200 OK immediately without reprocessing."
+          }
+        },
+        {
+          "name": "POST /webhooks/kyc - 401 Unauthorized (Invalid Signature)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Invalid signature returns 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "    pm.expect(pm.response.json().message).to.include('Invalid KYC webhook signature');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-KYC-Signature",
+                "value": "deadbeef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"evt-tampered-123\",\n  \"investor_id\": \"inv-uuid-456\",\n  \"new_status\": \"approved\",\n  \"timestamp\": \"2026-06-20T14:30:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/kyc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "kyc"
+              ]
+            },
+            "description": "Tests invalid HMAC signature rejection."
+          }
+        },
+        {
+          "name": "POST /webhooks/kyc - 400 Bad Request (Missing Fields)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const secret = pm.collectionVariables.get('KYC_WEBHOOK_SECRET') || 'local-dev-kyc-secret';",
+                  "const resolvedBody = pm.variables.replaceIn(pm.request.body.raw || '');",
+                  "pm.request.body.raw = resolvedBody;",
+                  "const cryptoLib = typeof CryptoJS !== 'undefined' ? CryptoJS : require('crypto-js');",
+                  "const signature = cryptoLib.HmacSHA256(resolvedBody, secret).toString(cryptoLib.enc.Hex);",
+                  "pm.variables.set('kyc_signature', signature);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Missing fields returns 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-KYC-Signature",
+                "value": "{{kyc_signature}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"evt-missing-fields\",\n  \"new_status\": \"invalid_status_enum\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/kyc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhooks",
+                "kyc"
+              ]
+            },
+            "description": "Tests payload validation failure."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Investor KYC Status (GET /investors/:id/kyc-status)",
+      "item": [
+        {
+          "name": "GET /investors/:id/kyc-status - 200 OK (Matching Tenant)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK with investor details', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const data = pm.response.json();",
+                  "    pm.expect(data).to.have.property('investor_id', 'inv-uuid-456');",
+                  "    pm.expect(data).to.have.property('kyc_status');",
+                  "    pm.expect(data).to.have.property('email');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_tenant_1}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/investors/inv-uuid-456/kyc-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "investors",
+                "inv-uuid-456",
+                "kyc-status"
+              ]
+            },
+            "description": "Successfully retrieves investor KYC status using a Bearer token with matching tenant_id."
+          }
+        },
+        {
+          "name": "GET /investors/:id/kyc-status - 403 Forbidden (Tenant Mismatch)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403 Forbidden on tenant mismatch', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "    pm.expect(pm.response.json().message).to.include('Investor does not belong to the authenticated tenant');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_tenant_2}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/investors/inv-uuid-456/kyc-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "investors",
+                "inv-uuid-456",
+                "kyc-status"
+              ]
+            },
+            "description": "Demonstrates tenant isolation. Token from tenant-global-2 attempting to access investor from tenant-meridian-1 returns 403 Forbidden."
+          }
+        },
+        {
+          "name": "GET /investors/:id/kyc-status - 404 Not Found (Missing Investor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404 Not Found for missing investor', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token_tenant_1}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/investors/inv-uuid-nonexistent/kyc-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "investors",
+                "inv-uuid-nonexistent",
+                "kyc-status"
+              ]
+            },
+            "description": "Tests 404 response when querying an unknown investor ID."
+          }
+        },
+        {
+          "name": "GET /investors/:id/kyc-status - 401 Unauthorized (No Token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized when missing token', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/investors/inv-uuid-456/kyc-status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "investors",
+                "inv-uuid-456",
+                "kyc-status"
+              ]
+            },
+            "description": "Tests missing Bearer token rejection."
+          }
+        }
+      ]
+    }
+  ]
+}
