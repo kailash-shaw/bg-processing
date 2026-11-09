@@ -44,32 +44,6 @@ Create `.env` based on `.env.example`:
 
 ## 3. Database Schema & Migration
 
-### Schema Model
-```prisma
-model Tenant {
-  id        String     @id @default(uuid())
-  name      String
-  investors Investor[]
-}
-
-model Investor {
-  id         String   @id @default(uuid())
-  tenant_id  String
-  email      String   @unique
-  kyc_status String   @default("pending")
-  tenant     Tenant   @relation(fields: [tenant_id], references: [id])
-}
-
-model WebhookEvent {
-  id           String   @id @default(uuid())
-  event_id     String   @unique
-  provider     String
-  payload      Json
-  processed_at DateTime @default(now())
-  investor_id  String?
-}
-```
-
 ### Migration Commands
 - **Apply migrations in production / CI:**
   ```bash
